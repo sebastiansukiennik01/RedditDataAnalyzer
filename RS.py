@@ -1,9 +1,7 @@
-import csv
-import praw
-import datetime
 import requests
 import pandas as pd
 import numpy as np
+import datetime
 
 
 pd.set_option('display.max_rows', None)
@@ -14,9 +12,14 @@ pd.set_option('display.width', None)
 class MyDataFrame():
 
     def create_dataframe(self, json_file):
+        """
+        Creates pandas DataFrame object containing posts characteristics: datetime, author name, number of upvotes etc.
+        :param json_file:
+        :return: Pandas DataFrame containing posts
+        """
         df = pd.DataFrame()
         for post in json_file['data']['children']:
-            df = df.append({"Time": post['data']['created_utc'],
+            df = df.append({"Time": datetime.datetime.utcfromtimestamp(post['data']['created_utc']),
                                 "Author": post['data']['author'],
                                 "Title": post['data']['title'],
                                 "Subreddit": post['data']['subreddit'],
@@ -36,6 +39,11 @@ class MyDataFrame():
         return df
 
     def create_comments_df(self, json_file):
+        """
+        Creates pandas DataFrame object containing comments connected to each post
+        :param json_file:
+        :return: Pandas DataFrame
+        """
         df = pd.DataFrame()
         file = json_file[0]['data']['children'][0]['data']
         print(file['num_comments'])
@@ -48,6 +56,9 @@ class MyDataFrame():
         return df
 
 class Reddit:
+    """
+    Main class, contains methods which connect to Reddit via requests package.
+    """
 
     data = {'grant_type': 'password',
                 'username': 'Quick-Wear-6539',
@@ -56,11 +67,21 @@ class Reddit:
     headers = {'User-Agent': 'TemporaryTesting/0.0.1'}
 
     def __init__(self, client_id="Lr8XDPt5VBjHpMofvjqamA", client_secret="7t6-4401z7KIOC5i5pbjcqNYMtlayg", user_agent="TemporaryTesting"):
+        """
+        Constructor setting basic credentials, allows connecting to Reddit API
+        :param client_id:
+        :param client_secret:
+        :param user_agent:
+        """
         self.my_client_id = client_id
         self.my_client_secret = client_secret
         self.my_user_agent = user_agent
 
     def connect(self):
+        """
+        Sends authorization request with credentials, connects to Reddit API
+        :return: None
+        """
         auth = requests.auth.HTTPBasicAuth(self.my_client_id, self.my_client_secret)
         res = requests.post('https://www.reddit.com/api/v1/access_token',
                             auth=auth, data=self.data, headers=self.headers)
@@ -69,6 +90,12 @@ class Reddit:
         res = requests.get('https://oauth.reddit.com/api/v1/me', headers=self.headers)
 
     def subreddit_request(self, subreddit, sort_type):
+        """
+        Makes request with specified subreddit and sort type
+        :param subreddit: Name of subreddit to be explored
+        :param sort_type: Type of post sorting: Hot/New/Top/Rising
+        :return: Pandas DataFrame containing posts
+        """
         res = requests.get(f"https://oauth.reddit.com/r/{subreddit}/{sort_type}", headers=self.headers, params=self.params)
         res.raise_for_status()
         if res.status_code != 204:
@@ -78,6 +105,14 @@ class Reddit:
                 print("Błąd podczas twoerzenia Dataframe'u")
 
     def search_subreddits(self, subreddits_list, limits_list, sorts_list):
+        """
+        Iterates through provided subreddits, limits, sort types and calls function subreddit_request.
+        Saves collected data from every searched subreddit to independent data to file.
+        :param subreddits_list: List of subreddit names
+        :param limits_list: List of number of elements to collect from each subreddit.
+        :param sorts_list: List of sorting types: Hot/New/Top/Rising
+        :return: None
+        """
         x = [subreddits_list, limits_list, sorts_list]
         lenght = len(subreddits_list)
         infos = np.array([xi + [None]*(lenght - len(xi)) for xi in x])
@@ -99,6 +134,12 @@ class Reddit:
             self.params['limit'] = '100'
 
     def reddit_request(self, phrase, sort_type):
+        """
+        Searches a specified phrase in all of subreddits
+        :param phrase: Searched phrase
+        :param sort_type: Best/Hot/New/Top/Rising
+        :return: Pandas DataFrame containing posts
+        """
         res = requests.get(f"https://oauth.reddit.com/search/?q={phrase}&sort={sort_type}", headers=self.headers, params=self.params)
         res.raise_for_status()
         if res.status_code != 204:
@@ -108,6 +149,11 @@ class Reddit:
                 print("Błąd podczas twoerzenia Dataframe'u")
 
     def comments_request(self, names):
+        """
+        Collects comments connected with each post.
+        :param names: Names of post (strings which are basically posts ID)
+        :return: Pandas DataFrame containing comments
+        """
         print(names)
         data = pd.DataFrame()
         for name in names:
@@ -117,9 +163,15 @@ class Reddit:
                 data = data.append(MyDataFrame().create_comments_df(res.json()))
         return data
 
-
-
     def search_all_reddit(self, search_list, limits_list, sorts_list):
+        """
+        Iterates through provided phrases, limits, sort type lists and calls function reddit_request.
+        Saves collected data from every searched subreddit to independent data to file.
+        :param search_list:
+        :param limits_list:
+        :param sorts_list:
+        :return: None
+        """
         x = [search_list, limits_list, sorts_list]
         length = len(search_list)
         infos = np.array([xi + [None]*(length - len(xi)) for xi in x])
@@ -146,8 +198,14 @@ class Reddit:
             self.params['after'] = ''
 
 
-
     def save_to_csv(self, dataframe, file_name, sort_type):
+        """
+        Saves dataframe to file name: 'file_name_sort_type.csv'
+        :param dataframe:
+        :param file_name:
+        :param sort_type:
+        :return: None
+        """
         if isinstance(dataframe, pd.DataFrame):
             dataframe.to_csv(f'Data/{file_name}_{sort_type}.csv')
 
@@ -160,12 +218,11 @@ if __name__ == '__main__':
     search_sort_types = ["relevance", "new", "hot", "top", "comments"]
     subreddit_sort_types = ["hot", "new", "top", "rising"]
 
-    '''phrases = ["USDJPY", "EURUSD", "GBPUSD"]
+    phrases = ["USDJPY", "EURUSD", "GBPUSD"]
     sub = ["forex", "Python", "Polska"]
     lim = [2200, 175, 100]
-    sor = ["new", "new", "hot"]'''
-    #red.search_subreddits(sub, lim, sor)
-    red.search_all_reddit(["USDJPY"], [20], ["new"])
+    sor = ["new", "new", "hot"]
+    red.search_subreddits(sub, lim, sor)
 
     '''
     res = requests.get("https://www.reddit.com/comments/q1omt5.json", headers={'User-Agent': 'TemporaryTesting/0.0.1'})
