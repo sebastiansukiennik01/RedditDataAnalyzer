@@ -45,15 +45,44 @@ class MyDataFrame():
         :return: Pandas DataFrame
         """
         df = pd.DataFrame()
+        print(type(json_file), len(json_file))
+        print(json_file[0], "\n\n", json_file[1])
+
+
         file = json_file[0]['data']['children'][0]['data']
         print(file['num_comments'])
+        print(file)
+
+        df = df.append({"Id": file.get('name'),
+                        "Comment": file.get('selftext'),
+                        "DateTime": file.get('created_utc'),
+                        "Subreddit": file.get('subreddit'),
+                        "SubredditID": file.get('subreddit_id'),
+                        "AuthorID": file.get('author_fullname'),
+                        "Author Name": file.get('author'),
+                        "URL": file.get('url')},
+                        ignore_index=True)
+
         for i in json_file:
             for j in i['data']['children']:
-                print(j['data'].get('body'))
+                #print(j['data'].get('body'))
+                if isinstance(j['data'].get('replies'), dict):
+                    print(j['data']['replies']['data']['children'][0]['data'].get('body'))
 
-        print(type(file), file)
-        print(file.keys())
+                df = df.append({"Id": j['data'].get('link_id'),
+                                "Comment": j['data'].get('body'),
+                                "DateTime": j['data'].get('created'),
+                                "Subreddit": j['data'].get('subreddit'),
+                                "SubredditID": j['data'].get('subreddit_id'),
+                                "AuthorID": j['data'].get('author_fullname'),
+                                "Author Name": j['data'].get('author'),
+                                "URL": j['data'].get('url')},
+                               ignore_index=True)
+        df.dropna(subset=["Id"], inplace=True)
         return df
+
+    def has_replies(self):
+
 
 class Reddit:
     """
@@ -107,7 +136,7 @@ class Reddit:
     def search_subreddits(self, subreddits_list, limits_list, sorts_list):
         """
         Iterates through provided subreddits, limits, sort types and calls function subreddit_request.
-        Saves collected data from every searched subreddit to independent data to file.
+        Saves collected data from every searched subreddit to independent data file.
         :param subreddits_list: List of subreddit names
         :param limits_list: List of number of elements to collect from each subreddit.
         :param sorts_list: List of sorting types: Hot/New/Top/Rising
@@ -120,16 +149,22 @@ class Reddit:
 
         for info in infos:
             print(info)
+            df = pd.DataFrame()
+            df_com = pd.DataFrame()
             limit = int(info[1])
 
-            df = pd.DataFrame()
             while np.divmod(limit, 100)[0] >= 0:
                 limit -= 100
                 df = df.append(self.subreddit_request(info[0], info[2]), ignore_index=True)
+
+                df_com = df_com.append(self.comments_request(df.loc[df['Number of comments'] > 0, 'Id'].array))
+
+                print(df.head(), df.info())
                 self.params['after'] = df.iat[-1, 5]
                 self.params['limit'] = limit
 
             self.save_to_csv(df, info[0], info[2])
+            self.save_to_csv(df_com, info[0], "komentarze")
             self.params['after'] = ""
             self.params['limit'] = '100'
 
@@ -157,6 +192,7 @@ class Reddit:
         print(names)
         data = pd.DataFrame()
         for name in names:
+            print(name)
             res = requests.get(f"https://www.reddit.com/comments/{name}.json", headers={'User-Agent': 'TemporaryTesting/0.0.1'})
             res.raise_for_status()
             if res.status_code != 204:
@@ -180,20 +216,20 @@ class Reddit:
         for info in infos:
             print(info)
             df = pd.DataFrame()
-            df_comm = pd.DataFrame()
+            df_com = pd.DataFrame()
             limit = int(info[1])
 
             while np.divmod(limit, 100)[0] >= 0:
                 limit -= 100
                 df = df.append(self.reddit_request(info[0], info[2]), ignore_index=True)
 
-                df_comm = df_comm.append(self.comments_request(df['Id'].array))
+                df_comm = df_com.append(self.comments_request(df['Id'].array))
 
 
                 self.params['after'] = df.iat[-1, 5]
                 self.params['limit'] = limit
             self.save_to_csv(df, info[0], info[2])
-            df_comm.to_csv('Data/komentarze.csv')
+            df_com.to_csv('Data/komentarze.csv')
             self.params['limit'] = '100'
             self.params['after'] = ''
 
@@ -220,9 +256,9 @@ if __name__ == '__main__':
 
     phrases = ["USDJPY", "EURUSD", "GBPUSD"]
     sub = ["forex", "Python", "Polska"]
-    lim = [2200, 175, 100]
+    lim = [10, 10, 10]
     sor = ["new", "new", "hot"]
-    red.search_subreddits(sub, lim, sor)
+    red.search_subreddits(["forex"], [10], ["new"])
 
     '''
     res = requests.get("https://www.reddit.com/comments/q1omt5.json", headers={'User-Agent': 'TemporaryTesting/0.0.1'})
