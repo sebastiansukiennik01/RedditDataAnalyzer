@@ -32,7 +32,6 @@ class MyDataFrame():
                                 "likes": post['data']['likes'],
                                 "Visited": post['data']['visited'],
                                 "Id": post['data']['id'],
-                                "Author": post['data']['author'],
                                 "Number of comments": post['data']['num_comments'],
                                 "URL": post['data']['url'],
                                 }, ignore_index=True)
@@ -45,41 +44,70 @@ class MyDataFrame():
         :return: Pandas DataFrame
         """
         df = pd.DataFrame()
-        print(type(json_file), len(json_file))
-        print(json_file[0], "\n\n", json_file[1])
+        #print(type(json_file), len(json_file))
+        #print(json_file[0], "\n\n", json_file[1])
 
 
         file = json_file[0]['data']['children'][0]['data']
         print(file['num_comments'])
-        print(file)
+        #print(file)
 
-        df = df.append({"Id": file.get('name'),
+        df = df.append({"PostId": file.get('name'),
                         "Comment": file.get('selftext'),
                         "DateTime": file.get('created_utc'),
                         "Subreddit": file.get('subreddit'),
                         "SubredditID": file.get('subreddit_id'),
                         "AuthorID": file.get('author_fullname'),
                         "Author Name": file.get('author'),
+                        "CommentId": file.get('name'),
+                        "ParenId": file.get('parent_id'),
                         "URL": file.get('url')},
                         ignore_index=True)
 
         for i in json_file:
             for j in i['data']['children']:
-                #print(j['data'].get('body'))
+                '''
                 if isinstance(j['data'].get('replies'), dict):
                     print(j['data']['replies']['data']['children'][0]['data'].get('body'))
+                    if isinstance(j['data']['replies']['data']['children'][0]['data'].get('replies'), dict):
+                        print(j['data']['replies']['data']['children'][0]['data']['replies']['data']['children'][0]['data'].get('body'))'''
 
-                df = df.append({"Id": j['data'].get('link_id'),
+
+                temp = j['data'].get('replies')
+                while isinstance(temp, dict):
+                    info = temp['data']['children'][0]['data']
+                    df = df.append({"PostId": info.get('link_id'),
+                                "Comment": info.get('body'),
+                                "DateTime": info.get('created'),
+                                "Subreddit": info.get('subreddit'),
+                                "SubredditID": info.get('subreddit_id'),
+                                "AuthorID": info.get('author_fullname'),
+                                "Author Name": info.get('author'),
+                                "CommentId": info.get('name'),
+                                "ParenId": info.get('parent_id'),
+                                "URL": info.get('url')},
+                               ignore_index=True)
+                    if isinstance(temp['data']['children'][0]['data'].get('replies'), dict):
+                        temp = temp['data']['children'][0]['data'].get('replies')
+                    else:
+                        break
+
+
+                df = df.append({"PostId": j['data'].get('link_id'),
                                 "Comment": j['data'].get('body'),
                                 "DateTime": j['data'].get('created'),
                                 "Subreddit": j['data'].get('subreddit'),
                                 "SubredditID": j['data'].get('subreddit_id'),
                                 "AuthorID": j['data'].get('author_fullname'),
                                 "Author Name": j['data'].get('author'),
+                                "CommentId": j['data'].get('name'),
+                                "ParenId": j['data'].get('parent_id'),
                                 "URL": j['data'].get('url')},
                                ignore_index=True)
-        df.dropna(subset=["Id"], inplace=True)
+        df.dropna(subset=["PostId"], inplace=True)
         return df
+
+
 
 
 class Reddit:
@@ -146,7 +174,6 @@ class Reddit:
         infos = infos.transpose()
 
         for info in infos:
-            print(info)
             df = pd.DataFrame()
             df_com = pd.DataFrame()
             limit = int(info[1])
@@ -254,21 +281,10 @@ if __name__ == '__main__':
 
     phrases = ["USDJPY", "EURUSD", "GBPUSD"]
     sub = ["forex", "Python", "Polska"]
-    lim = [10, 10, 10]
+    lim = [120, 80, 150]
     sor = ["new", "new", "hot"]
-    red.search_subreddits(["forex"], [10], ["new"])
+    red.search_subreddits(sub, lim, sor)
 
-    '''
-    res = requests.get("https://www.reddit.com/comments/q1omt5.json", headers={'User-Agent': 'TemporaryTesting/0.0.1'})
-    res.raise_for_status()
-    lista = []
-    if res.status_code != 204:
-        for x in res.json():
-            for k in x['data']['children']:
-                lista.append(k['data'].get("body"))
-
-    for l in lista:
-        print(l, "\n\n\n")'''
 
 
 
