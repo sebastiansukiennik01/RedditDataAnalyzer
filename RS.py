@@ -81,8 +81,6 @@ class MyDataFrame():
         df.dropna(subset=["Id"], inplace=True)
         return df
 
-    def has_replies(self):
-
 
 class Reddit:
     """
