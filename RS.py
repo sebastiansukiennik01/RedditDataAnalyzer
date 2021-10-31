@@ -19,22 +19,26 @@ class MyDataFrame():
         """
         df = pd.DataFrame()
         for post in json_file['data']['children']:
+
             df = df.append({"Time": datetime.datetime.utcfromtimestamp(post['data']['created_utc']),
                                 "Author": post['data']['author'],
                                 "Title": post['data']['title'],
+                                "Body": post['data']['selftext'],
                                 "Subreddit": post['data']['subreddit'],
                                 "Downs": post['data']['downs'],
+                                "Ups": post['data']['ups'],
                                 "name": post['data']['name'],
                                 "Upvote ratio": post['data']["upvote_ratio"],
                                 "Is original": post['data']['is_original_content'],
                                 "Category": post['data']['category'],
                                 "Score": post['data']['score'],
-                                "likes": post['data']['likes'],
-                                "Visited": post['data']['visited'],
                                 "Id": post['data']['id'],
                                 "Number of comments": post['data']['num_comments'],
-                                "URL": post['data']['url'],
+                                "Media url": post['data']['url'],
+                                "Total awards received": post['data']['total_awards_received'],
+                                "URL": "https://www.reddit.com" + post['data']['permalink'],
                                 }, ignore_index=True)
+
         return df
 
     def create_comments_df(self, json_file):
@@ -44,47 +48,44 @@ class MyDataFrame():
         :return: Pandas DataFrame
         """
         df = pd.DataFrame()
-        #print(type(json_file), len(json_file))
-        #print(json_file[0], "\n\n", json_file[1])
 
+        info = json_file[0]['data']['children'][0]['data']
+        print(info['num_comments'])
 
-        file = json_file[0]['data']['children'][0]['data']
-        print(file['num_comments'])
-        #print(file)
-
-        df = df.append({"PostId": file.get('name'),
-                        "Comment": file.get('selftext'),
-                        "DateTime": file.get('created_utc'),
-                        "Subreddit": file.get('subreddit'),
-                        "SubredditID": file.get('subreddit_id'),
-                        "AuthorID": file.get('author_fullname'),
-                        "Author Name": file.get('author'),
-                        "CommentId": file.get('name'),
-                        "ParenId": file.get('parent_id'),
-                        "URL": file.get('url')},
-                        ignore_index=True)
+        df = df.append({"PostId": info.get('name'),
+                        "Comment": info.get('selftext'),
+                        "DateTime":  datetime.datetime.utcfromtimestamp(info.get('created_utc')),
+                        "Subreddit": info.get('subreddit'),
+                        "SubredditID": info.get('subreddit_id'),
+                        "AuthorID": info.get('author_fullname'),
+                        "Author Name": info.get('author'),
+                        "CommentId": info.get('name'),
+                        "ParentId": info.get('parent_id'),
+                        "Upvotes": info.get('ups'),
+                        "Score": info.get('score'),
+                        "Downvotes": info.get('downs'),
+                        "URL": info.get('url')},
+                       ignore_index=True)
 
         for i in json_file:
             for j in i['data']['children']:
-                '''
-                if isinstance(j['data'].get('replies'), dict):
-                    print(j['data']['replies']['data']['children'][0]['data'].get('body'))
-                    if isinstance(j['data']['replies']['data']['children'][0]['data'].get('replies'), dict):
-                        print(j['data']['replies']['data']['children'][0]['data']['replies']['data']['children'][0]['data'].get('body'))'''
-
-
                 temp = j['data'].get('replies')
+
                 while isinstance(temp, dict):
                     info = temp['data']['children'][0]['data']
+                    print(info)
                     df = df.append({"PostId": info.get('link_id'),
                                 "Comment": info.get('body'),
-                                "DateTime": info.get('created'),
+                                "DateTime": datetime.datetime.utcfromtimestamp(info.get('created')),
                                 "Subreddit": info.get('subreddit'),
                                 "SubredditID": info.get('subreddit_id'),
                                 "AuthorID": info.get('author_fullname'),
                                 "Author Name": info.get('author'),
                                 "CommentId": info.get('name'),
-                                "ParenId": info.get('parent_id'),
+                                "ParentId": info.get('parent_id'),
+                                "Upvotes": info.get('ups'),
+                                "Score": info.get('score'),
+                                "Downvotes": info.get('downs'),
                                 "URL": info.get('url')},
                                ignore_index=True)
                     if isinstance(temp['data']['children'][0]['data'].get('replies'), dict):
@@ -95,13 +96,16 @@ class MyDataFrame():
 
                 df = df.append({"PostId": j['data'].get('link_id'),
                                 "Comment": j['data'].get('body'),
-                                "DateTime": j['data'].get('created'),
+                                "DateTime": datetime.datetime.utcfromtimestamp(j['data'].get('created')),
                                 "Subreddit": j['data'].get('subreddit'),
                                 "SubredditID": j['data'].get('subreddit_id'),
                                 "AuthorID": j['data'].get('author_fullname'),
                                 "Author Name": j['data'].get('author'),
                                 "CommentId": j['data'].get('name'),
-                                "ParenId": j['data'].get('parent_id'),
+                                "ParentId": j['data'].get('parent_id'),
+                                "Upvotes": j['data'].get('ups'),
+                                "Score": j['data'].get('score'),
+                                "Downvotes": j['data'].get('downs'),
                                 "URL": j['data'].get('url')},
                                ignore_index=True)
         df.dropna(subset=["PostId"], inplace=True)
@@ -118,7 +122,7 @@ class Reddit:
     data = {'grant_type': 'password',
                 'username': 'Quick-Wear-6539',
                 'password': 'nawvoj-Xahkij-xotdu0'}
-    params = {'limit': '15', 'after': ''}
+    params = {'limit': '100', 'after': ''}
     headers = {'User-Agent': 'TemporaryTesting/0.0.1'}
 
     def __init__(self, client_id="Lr8XDPt5VBjHpMofvjqamA", client_secret="7t6-4401z7KIOC5i5pbjcqNYMtlayg", user_agent="TemporaryTesting"):
@@ -179,18 +183,20 @@ class Reddit:
             limit = int(info[1])
 
             while np.divmod(limit, 100)[0] >= 0:
+                if (np.divmod(limit, 100)[0] == 0):
+                    self.params['limit'] = np.divmod(limit, 100)[1]
+                    df = df.append(self.subreddit_request(info[0], info[2]), ignore_index=True)
+                    df_com = df_com.append(self.comments_request(df.loc[df['Number of comments'] > 0, 'Id'].array))
+                else:
+                    self.params['limit'] = '100'
+                    df = df.append(self.subreddit_request(info[0], info[2]), ignore_index=True)
+                    df_com = df_com.append(self.comments_request(df.loc[df['Number of comments'] > 0, 'Id'].array))
                 limit -= 100
-                df = df.append(self.subreddit_request(info[0], info[2]), ignore_index=True)
-
-                df_com = df_com.append(self.comments_request(df.loc[df['Number of comments'] > 0, 'Id'].array))
-
-                print(df.head(), df.info())
                 self.params['after'] = df.iat[-1, 5]
-                self.params['limit'] = limit
 
             self.save_to_csv(df, info[0], info[2])
-            self.save_to_csv(df_com, info[0], "komentarze")
-            self.params['after'] = ""
+            self.save_to_csv(df_com, info[0], info[2], 'comments')
+            self.params['after'] = ''
             self.params['limit'] = '100'
 
     def reddit_request(self, phrase, sort_type):
@@ -245,21 +251,24 @@ class Reddit:
             limit = int(info[1])
 
             while np.divmod(limit, 100)[0] >= 0:
+                if (np.divmod(limit, 100)[0] == 0):
+                    self.params['limit'] = np.divmod(limit, 100)[1]
+                    df = df.append(self.reddit_request(info[0], info[2]), ignore_index=True)
+                    df_com = df_com.append(self.comments_request(df.loc[df['Number of comments'] > 0, 'Id'].array))
+                else:
+                    self.params['limit'] = '100'
+                    df = df.append(self.reddit_request(info[0], info[2]), ignore_index=True)
+                    df_com = df_com.append(self.comments_request(df.loc[df['Number of comments'] > 0, 'Id'].array))
                 limit -= 100
-                df = df.append(self.reddit_request(info[0], info[2]), ignore_index=True)
-
-                df_comm = df_com.append(self.comments_request(df['Id'].array))
-
-
                 self.params['after'] = df.iat[-1, 5]
-                self.params['limit'] = limit
+
             self.save_to_csv(df, info[0], info[2])
-            df_com.to_csv('Data/komentarze.csv')
+            self.save_to_csv(df_com, info[0], info[2], 'comments')
             self.params['limit'] = '100'
             self.params['after'] = ''
 
 
-    def save_to_csv(self, dataframe, file_name, sort_type):
+    def save_to_csv(self, dataframe, file_name, sort_type, suffix=None):
         """
         Saves dataframe to file name: 'file_name_sort_type.csv'
         :param dataframe:
@@ -268,7 +277,10 @@ class Reddit:
         :return: None
         """
         if isinstance(dataframe, pd.DataFrame):
-            dataframe.to_csv(f'Data/{file_name}_{sort_type}.csv')
+            if suffix:
+                dataframe.to_csv(f'Data/{file_name}_{sort_type}_{suffix}.csv')
+            else:
+                dataframe.to_csv(f'Data/{file_name}_{sort_type}.csv')
 
 
 if __name__ == '__main__':
@@ -281,9 +293,10 @@ if __name__ == '__main__':
 
     phrases = ["USDJPY", "EURUSD", "GBPUSD"]
     sub = ["forex", "Python", "Polska"]
-    lim = [120, 80, 150]
+    lim = [120, 30, 173]
     sor = ["new", "new", "hot"]
-    red.search_subreddits(sub, lim, sor)
+    #red.search_subreddits(sub, lim, sor)
+    red.search_all_reddit(['USDJPY'], [50], ['hot'])
 
 
 
