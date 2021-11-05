@@ -207,7 +207,7 @@ class Reddit:
         data = pd.DataFrame()
         for name in names:
             print(name)
-            res = requests.get(f"https://www.reddit.com/comments/{name}.json", headers={'User-Agent': 'TemporaryTesting/0.0.1'})
+            res = requests.get(f"https://www.reddit.com/comments/{name}.json", headers=self.headers, params=self.params)
             res.raise_for_status()
             if res.status_code != 204:
                 data = data.append(MyDataFrame().create_comments_df(res.json()))
@@ -339,30 +339,15 @@ class Reddit:
         if isinstance(dataframe, pd.DataFrame):
             dataframe.to_csv(f'Data/{file_name}_{sort_type}_{suffix}.csv')
 
-
 if __name__ == '__main__':
+    phrases = ["USDJPY", "dogecoin", "metaverse"]
+    limits = [120, 120, 120]
+    sort_types = ["new", "new", "hot"]
 
     red = Reddit()
     red.connect()
+    red.search_whole_reddit(phrases, limits, sort_types)
 
-    search_sort_types = ["relevance", "new", "hot", "top", "comments"]
-    subreddit_sort_types = ["hot", "new", "top", "rising"]
-
-    user_names = ["Tradingwaves1", "Anonymous_Crispy", "csfxmarketnews"]
-    phrases = ["USDJPY", "EURUSD", "GBPUSD"]
-    sub = ["forex", "Python", "Polska"]
-    lim = [10, 15, 17]
-    sor = ["new", "new", "hot"]
-    #red.search_subreddits(sub, lim, sor)
-    #red.search_whole_reddit(['USDJPY'], [50], ['hot'])
-    red.search_users_posts(user_names, lim, sor)
-
-    '''df = pd.read_csv("Data/USDJPY_hot_posts.csv")
-    names = list(df['User Name'].unique())
-    print(type(names))
-    limits = [20]*len(names)
-    sorts = ['new']*len(names)
-    red.search_users_posts(names, limits, sorts)'''
 
 
 
