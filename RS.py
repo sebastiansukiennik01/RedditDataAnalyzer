@@ -207,7 +207,7 @@ class Reddit:
         data = pd.DataFrame()
         for name in names:
             print(name)
-            res = requests.get(f"https://www.reddit.com/comments/{name}.json", headers=self.headers, params=self.params)
+            res = requests.get(f"https://www.reddit.com/comments/{name}.json", headers={'User-Agent': 'TemporaryTesting/0.0.1'})
             res.raise_for_status()
             if res.status_code != 204:
                 data = data.append(MyDataFrame().create_comments_df(res.json()))
@@ -339,14 +339,25 @@ class Reddit:
         if isinstance(dataframe, pd.DataFrame):
             dataframe.to_csv(f'Data/{file_name}_{sort_type}_{suffix}.csv')
 
-if __name__ == '__main__':
+
+class Test:
+
     phrases = ["USDJPY", "dogecoin", "metaverse"]
     limits = [120, 120, 120]
     sort_types = ["new", "new", "hot"]
 
+    def __init__(self, phrases, limtis, sort_types):
+        self.phrases = phrases
+        self.limits = limtis
+        self.sort_types = sort_types
+
+
+if __name__ == '__main__':
+
+    t = Test()
     red = Reddit()
     red.connect()
-    red.search_whole_reddit(phrases, limits, sort_types)
+    red.search_whole_reddit(t.phrases, t.limits, t.sort_types)
 
 
 
